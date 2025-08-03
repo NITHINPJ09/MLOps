@@ -1,3 +1,5 @@
+.dvc/
 .git/
 .github/
+.gitignore
 *.md

@@ -1,4 +1,5 @@
 from flask import Flask, request, render_template, jsonify
+import os
 import re
 from PIL import Image
 from io import BytesIO
@@ -19,7 +20,8 @@ def predict():
         pil_image = Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
         label_names = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         label_names.sort()
-        net = cv2.dnn.readNetFromONNX('cifar_classifier.onnx')
+        model_path = os.path.join('models', 'cifar_classifier.onnx')
+        net = cv2.dnn.readNetFromONNX(model_path)
         img = cv2.resize(np.array(pil_image),(32,32))
         img = np.array([img]).astype('float64') / 255.0
         net.setInput(img)
