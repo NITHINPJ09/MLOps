@@ -14,7 +14,7 @@ RUN --mount=type=secret,id=ACCOUNT_KEY \
     export STORAGE_ACCOUNT_KEY=$(cat /run/secrets/ACCOUNT_KEY) && \
     dvc remote modify classifier account_key $STORAGE_ACCOUNT_KEY && \
     dvc pull
-# RUN rm -rf .dvc .dvcignore *.dvc
+RUN rm -rf .dvc .dvcignore *.dvc
 EXPOSE 8000
 USER appuser
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "app:app"]
