@@ -20,9 +20,8 @@ def predict():
         pil_image = Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
         label_names = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         label_names.sort()
-        # model_path = os.path.join('models', 'cifar_classifier.onnx')
-        # net = cv2.dnn.readNetFromONNX(model_path)
-        net = cv2.dnn.readNetFromONNX('cifar_classifier.onnx')
+        model_path = os.path.join('models', 'cifar_classifier.onnx')
+        net = cv2.dnn.readNetFromONNX(model_path)
         img = cv2.resize(np.array(pil_image),(32,32))
         img = np.array([img]).astype('float64') / 255.0
         net.setInput(img)
