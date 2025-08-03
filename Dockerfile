@@ -1,7 +1,6 @@
 # syntax=docker/dockerfile:1
 
 FROM python:3.13-slim
-ARG STORAGE_ACCOUNT_KEY
 WORKDIR /image_classifier
 COPY . .
 RUN groupadd -r appuser && \
@@ -11,6 +10,8 @@ RUN groupadd -r appuser && \
     dvc init --no-scm && \
     dvc remote add -d classifier azure://cifar-classifier-model && \
     dvc remote modify classifier account_name 'cifarmodel' && \
+    --mount=type=secret,id=AZURE_STORAGE_ACCOUNT_KEY \
+    export STORAGE_ACCOUNT_KEY=$(cat /run/secrets/AZURE_STORAGE_ACCOUNT_KEY) && \
     dvc remote modify classifier account_key $STORAGE_ACCOUNT_KEY && \
     dvc pull && \
     rm -rf .dvc .dvcignore *.dvc
