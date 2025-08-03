@@ -63,7 +63,9 @@ jobs:
         
       # Build the Docker image
       - name: Build Docker Image
-        run: docker build --secret id=${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }} -f Dockerfile -t ${{ vars.IMAGE_NAME }} .
+        run: |
+          export STORAGE_ACCOUNT_KEY=${{ secrets.AZURE_STORAGE_ACCOUNT_KEY }}
+          docker build --secret id=ACCOUNT_KEY,env=STORAGE_ACCOUNT_KEY -f Dockerfile -t ${{ vars.IMAGE_NAME }} .
 
       # Run Trivy vulnerability scanner
       - name: Run Trivy vulnerability scanner

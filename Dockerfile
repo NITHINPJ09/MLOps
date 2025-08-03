@@ -10,8 +10,8 @@ RUN groupadd -r appuser && \
     dvc init --no-scm && \
     dvc remote add -d classifier azure://cifar-classifier-model && \
     dvc remote modify classifier account_name 'cifarmodel' && \
-    --mount=type=secret,id=AZURE_STORAGE_ACCOUNT_KEY \
-    export STORAGE_ACCOUNT_KEY=$(cat /run/secrets/AZURE_STORAGE_ACCOUNT_KEY) && \
+    --mount=type=secret,id=ACCOUNT_KEY \
+    export STORAGE_ACCOUNT_KEY=$(cat /run/secrets/ACCOUNT_KEY) && \
     dvc remote modify classifier account_key $STORAGE_ACCOUNT_KEY && \
     dvc pull && \
     rm -rf .dvc .dvcignore *.dvc
