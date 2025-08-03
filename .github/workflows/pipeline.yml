@@ -1,0 +1,129 @@
+name: Image Classification Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  HOST_NAME: ${{ secrets.HOST_NAME }} 
+
+jobs:
+  security_scan:
+    name: Run security scans
+    runs-on: ubuntu-latest
+    steps:
+    
+      # Checkout the repository
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure entire history is fetched for accurate scans
+
+      # Run gitleaks to scan for sensitive data in the repository
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Required for accessing repository
+
+      # Setup the Python environment
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'  # Specify Python version needed for your project
+
+      # Install and run Bandit for Python code security analysis
+      - name: Install and run Bandit
+        run: |
+          pip install bandit
+          bandit -r .
+
+      # Install and run pip-audit to check vulnerabilities in Python dependencies
+      - name: Install and run pip-audit
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  build_scan_and_push_image:
+    name: Build, scan, and push the Docker image
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
+    needs: security_scan    
+    steps:
+    
+      # Checkout the repository
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        
+      # Build the Docker image
+      - name: Build Docker Image
+        run: docker build -f Dockerfile -t ${{ vars.IMAGE_NAME }} .
+
+      # Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: '${{ vars.IMAGE_NAME }}'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          # vuln-type: 'os'
+          severity: 'CRITICAL'
+          # severity: 'CRITICAL,HIGH'      
+
+      # Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Push the Docker image to Docker Hub
+      - name: Push Docker Image
+        run: docker push ${{ vars.IMAGE_NAME }}
+
+  deploy:
+    name: Deploy to VM
+    runs-on: ubuntu-latest
+    needs: build_scan_and_push_image   
+    steps:
+    
+      # Connect to the VM and perform deployment tasks
+      - name: Deploy
+        env:
+          USER_NAME: ${{ secrets.USER_NAME }}    
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 400 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key -T ${USER_NAME}@${HOST_NAME} << EOF
+              if docker ps | grep -q 'myApp'
+              then 
+                  echo "Stopping and removing the container."
+                  docker stop myApp
+                  docker rm myApp                      
+              fi
+              docker rmi ${{ vars.IMAGE_NAME }}
+              docker run -d --restart always -p 80:8000 --name myApp ${{ vars.IMAGE_NAME }}
+          EOF
+
+  zap_scan:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+    
+      # Checkout the repository
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+
+      # Run OWASP ZAP Baseline Scan
+      - name: ZAP Scan    
+        run: |
+          docker run -t ghcr.io/zaproxy/zaproxy:stable zap-baseline.py -t http://${HOST_NAME} -I 
