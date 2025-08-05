@@ -7,7 +7,7 @@ RUN --mount=type=secret,id=ACCOUNT_KEY \
     groupadd -r appuser && \
     useradd -g appuser appuser && \
     chown -R appuser:appuser /image_classifier && \
-    pip3 install -r requirements.txt && \
+    pip3 install --no-cache-dir -r requirements.txt && \
     dvc init --no-scm && \
     dvc remote add -d classifier azure://cifar-classifier-model && \
     dvc remote modify classifier account_name 'cifarmodel' && \
