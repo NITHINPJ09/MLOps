@@ -9,6 +9,9 @@ import cv2
 from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST
 import time
 
+registry = CollectorRegistry()
+multiprocess.MultiProcessCollector(registry)
+
 REQUEST_COUNT = Counter(
     'http_requests_total',
     'Total HTTP Requests',
@@ -32,8 +35,8 @@ net = cv2.dnn.readNetFromONNX(model_path)
 
 @app.route('/metrics')
 def metrics():
-    registry = CollectorRegistry()
-    multiprocess.MultiProcessCollector(registry)
+    # registry = CollectorRegistry()
+    # multiprocess.MultiProcessCollector(registry)
     return Response(generate_latest(registry), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/', methods=['GET'])
