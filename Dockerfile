@@ -19,4 +19,4 @@ RUN --mount=type=secret,id=ACCOUNT_KEY \
     rm -rf .dvc .dvcignore *.dvc
 EXPOSE 8000
 USER appuser
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/image_classifier/entrypoint.sh"]
