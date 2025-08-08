@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, Response
+from flask import Flask, request, render_template, jsonify
 import os
 import re
 from PIL import Image
@@ -6,29 +6,42 @@ from io import BytesIO
 import base64
 import numpy as np
 import cv2
-from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST
 import time
+
+os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus"
+os.makedirs("/tmp/prometheus", exist_ok=True)
+
+registry = CollectorRegistry()
+multiprocess.MultiProcessCollector(registry)
+
+REQUEST_COUNT = Counter("http_requests_total", "Total HTTP requests", ["method", "endpoint"], registry=registry)
+REQUEST_LATENCY = Histogram("http_request_latency_seconds", "Latency of HTTP requests", ["endpoint"], registry=registry)
 
 app = Flask(__name__)
 
-REQUEST_COUNT = Counter(
-    'http_requests_total',
-    'Total HTTP Requests',
-    ['method', 'endpoint']
-)
+label_names = sorted([
+    'airplane', 'automobile', 'bird', 'cat', 'deer',
+    'dog', 'frog', 'horse', 'ship', 'truck'
+])
+model_path = os.path.join('models', 'cifar_classifier.onnx')
+net = cv2.dnn.readNetFromONNX(model_path)
 
-REQUEST_LATENCY = Histogram(
-    'http_request_duration_seconds',
-    'Request latency in seconds',
-    ['method', 'endpoint']
-)
+@app.before_request
+def start_timer():
+    request.start_time = time.time()
 
-if os.environ.get('PROMETHEUS_MULTIPROC_DIR'):
-    multiprocess.MultiProcessCollector(REGISTRY)
+@app.after_request
+def record_metrics(response):
+    if request.endpoint:
+        latency = time.time() - request.start_time
+        REQUEST_COUNT.labels(method=request.method, endpoint=request.path).inc()
+        REQUEST_LATENCY.labels(endpoint=request.path).observe(latency)
+    return response
 
-@app.route('/metrics')
+@app.route("/metrics")
 def metrics():
-    return Response(generate_latest(REGISTRY), mimetype=CONTENT_TYPE_LATEST)
+    return generate_latest(registry), 200, {'Content-Type': CONTENT_TYPE_LATEST}
 
 @app.route('/', methods=['GET'])
 def index():
@@ -36,23 +49,15 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    start_time = time.time()
     try:
         image_data = re.sub('^data:image/.+;base64,', '', request.json)
         pil_image = Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
-        label_names = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-        label_names.sort()
-        model_path = os.path.join('models', 'cifar_classifier.onnx')
-        net = cv2.dnn.readNetFromONNX(model_path)
         img = cv2.resize(np.array(pil_image), (32, 32))
         img = np.array([img]).astype('float64') / 255.0
         net.setInput(img)
         out = net.forward()
         index = np.argmax(out[0])
         label = label_names[index].capitalize()
-        latency = time.time() - start_time
-        REQUEST_COUNT.labels(request.method, request.endpoint).inc()
-        REQUEST_LATENCY.labels(request.method, request.endpoint).observe(latency)
         return jsonify(result=label)
     except Exception as e:
         return jsonify(error="Prediction failed", details=str(e)), 500
