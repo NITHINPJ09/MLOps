@@ -6,22 +6,28 @@ from io import BytesIO
 import base64
 import numpy as np
 import cv2
-from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST, platform_collector, process_collector, gc_collector
 import time
 
 registry = CollectorRegistry()
 multiprocess.MultiProcessCollector(registry)
 
+gc_collector.GCCollector(registry=registry)
+platform_collector.PlatformCollector(registry=registry)
+process_collector.ProcessCollector(registry=registry)
+
 REQUEST_COUNT = Counter(
     'http_requests_total',
     'Total HTTP Requests',
-    ['method', 'endpoint']
+    ['method', 'endpoint'],
+    registry=registry
 )
 
 REQUEST_LATENCY = Histogram(
     'http_request_duration_seconds',
     'Request latency in seconds',
-    ['method', 'endpoint']
+    ['method', 'endpoint'],
+    registry=registry
 )
 
 app = Flask(__name__)
@@ -35,8 +41,6 @@ net = cv2.dnn.readNetFromONNX(model_path)
 
 @app.route('/metrics')
 def metrics():
-    # registry = CollectorRegistry()
-    # multiprocess.MultiProcessCollector(registry)
     return Response(generate_latest(registry), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/', methods=['GET'])
