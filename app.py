@@ -6,8 +6,37 @@ from io import BytesIO
 import base64
 import numpy as np
 import cv2
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST, start_http_server
+import time
 
 app = Flask(__name__)
+
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP Requests',
+    ['method', 'endpoint']
+)
+
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'Request latency in seconds',
+    ['method', 'endpoint']
+)
+
+@app.before_request
+def before_request():
+    request.start_time = time.time()
+
+@app.after_request
+def after_request(response):
+    request_latency = time.time() - request.start_time
+    REQUEST_COUNT.labels(request.method, request.path).inc()
+    REQUEST_LATENCY.labels(request.method, request.path).observe(request_latency)
+    return response
+
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/', methods=['GET'])
 def index():
