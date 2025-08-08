@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, Response, g
+from flask import Flask, request, render_template, jsonify, Response
 import os
 import re
 from PIL import Image
@@ -23,19 +23,6 @@ REQUEST_LATENCY = Histogram(
     ['method', 'endpoint']
 )
 
-@app.before_request
-def before_request():
-    g.start_time = time.time()
-
-@app.after_request
-def after_request(response):
-    if hasattr(g, 'start_time'):
-        request_latency = time.time() - g.start_time
-        endpoint = request.endpoint or "unknown"
-        REQUEST_COUNT.labels(request.method, endpoint).inc()
-        REQUEST_LATENCY.labels(request.method, endpoint).observe(request_latency)
-    return response
-
 @app.route('/metrics')
 def metrics():
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
@@ -46,18 +33,23 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    if request.method == 'POST':
+    start_time = time.time()
+    try:
         image_data = re.sub('^data:image/.+;base64,', '', request.json)
         pil_image = Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
         label_names = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         label_names.sort()
         model_path = os.path.join('models', 'cifar_classifier.onnx')
         net = cv2.dnn.readNetFromONNX(model_path)
-        img = cv2.resize(np.array(pil_image),(32,32))
+        img = cv2.resize(np.array(pil_image), (32, 32))
         img = np.array([img]).astype('float64') / 255.0
         net.setInput(img)
         out = net.forward()
         index = np.argmax(out[0])
-        label =  label_names[index].capitalize()
+        label = label_names[index].capitalize()
+        latency = time.time() - start_time
+        REQUEST_COUNT.labels(request.method, request.endpoint).inc()
+        REQUEST_LATENCY.labels(request.method, request.endpoint).observe(latency)
         return jsonify(result=label)
-    return None
+    except Exception as e:
+        return jsonify(error="Prediction failed", details=str(e)), 500
