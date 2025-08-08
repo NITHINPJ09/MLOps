@@ -6,7 +6,7 @@ from io import BytesIO
 import base64
 import numpy as np
 import cv2
-from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
 import time
 
 app = Flask(__name__)
@@ -25,9 +25,8 @@ REQUEST_LATENCY = Histogram(
 
 @app.route('/metrics')
 def metrics():
-    registry = CollectorRegistry()
-    multiprocess.MultiProcessCollector(registry)
-    return Response(generate_latest(registry), mimetype=CONTENT_TYPE_LATEST)
+    multiprocess.MultiProcessCollector(REGISTRY)
+    return Response(generate_latest(REGISTRY), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/', methods=['GET'])
 def index():

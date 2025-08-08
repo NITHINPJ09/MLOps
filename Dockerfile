@@ -8,7 +8,7 @@ RUN --mount=type=secret,id=ACCOUNT_KEY \
     groupadd -r appuser && \
     useradd -g appuser appuser && \
     chown -R appuser:appuser /image_classifier && \
-    chmod +x entrypoint.sh && \
+    chmod +x docker-entrypoint.sh && \
     pip3 install --no-cache-dir -r requirements.txt && \
     dvc init --no-scm && \
     dvc remote add -d classifier azure://cifar-classifier-model && \
@@ -19,4 +19,4 @@ RUN --mount=type=secret,id=ACCOUNT_KEY \
     rm -rf .dvc .dvcignore *.dvc
 EXPOSE 8000
 USER appuser
-ENTRYPOINT ["/image_classifier/entrypoint.sh"]
+ENTRYPOINT ["/image_classifier/docker-entrypoint.sh"]
