@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, Response
+from flask import Flask, request, render_template, jsonify, Response, g
 import os
 import re
 from PIL import Image
@@ -25,13 +25,15 @@ REQUEST_LATENCY = Histogram(
 
 @app.before_request
 def before_request():
-    request.start_time = time.time()
+    g.start_time = time.time()
 
 @app.after_request
 def after_request(response):
-    request_latency = time.time() - request.start_time
-    REQUEST_COUNT.labels(request.method, request.path).inc()
-    REQUEST_LATENCY.labels(request.method, request.path).observe(request_latency)
+    if hasattr(g, 'start_time'):
+        request_latency = time.time() - g.start_time
+        endpoint = request.endpoint or "unknown"
+        REQUEST_COUNT.labels(request.method, endpoint).inc()
+        REQUEST_LATENCY.labels(request.method, endpoint).observe(request_latency)
     return response
 
 @app.route('/metrics')
