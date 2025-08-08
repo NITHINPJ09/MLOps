@@ -6,7 +6,7 @@ from io import BytesIO
 import base64
 import numpy as np
 import cv2
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST, start_http_server
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 import time
 
 app = Flask(__name__)
