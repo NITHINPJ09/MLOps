@@ -9,9 +9,6 @@ import cv2
 from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST
 import time
 
-os.environ["PROMETHEUS_MULTIPROC_DIR"] = "/tmp/prometheus"
-os.makedirs("/tmp/prometheus", exist_ok=True)
-
 registry = CollectorRegistry()
 multiprocess.MultiProcessCollector(registry)
 
