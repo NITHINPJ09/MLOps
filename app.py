@@ -11,6 +11,8 @@ import time
 
 app = Flask(__name__)
 
+multiprocess.MultiProcessCollector(REGISTRY)
+
 REQUEST_COUNT = Counter(
     'http_requests_total',
     'Total HTTP Requests',
@@ -25,7 +27,6 @@ REQUEST_LATENCY = Histogram(
 
 @app.route('/metrics')
 def metrics():
-    multiprocess.MultiProcessCollector(REGISTRY)
     return Response(generate_latest(REGISTRY), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/', methods=['GET'])
