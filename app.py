@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, Response
 import os
 import re
 from PIL import Image
@@ -9,11 +9,17 @@ import cv2
 from prometheus_client import Counter, Histogram, CollectorRegistry, multiprocess, generate_latest, CONTENT_TYPE_LATEST
 import time
 
-registry = CollectorRegistry()
-multiprocess.MultiProcessCollector(registry)
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP Requests',
+    ['method', 'endpoint']
+)
 
-REQUEST_COUNT = Counter("http_requests_total", "Total HTTP requests", ["method", "endpoint"], registry=registry)
-REQUEST_LATENCY = Histogram("http_request_latency_seconds", "Latency of HTTP requests", ["endpoint"], registry=registry)
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'Request latency in seconds',
+    ['method', 'endpoint']
+)
 
 app = Flask(__name__)
 
@@ -24,21 +30,11 @@ label_names = sorted([
 model_path = os.path.join('models', 'cifar_classifier.onnx')
 net = cv2.dnn.readNetFromONNX(model_path)
 
-@app.before_request
-def start_timer():
-    request.start_time = time.time()
-
-@app.after_request
-def record_metrics(response):
-    if request.endpoint:
-        latency = time.time() - request.start_time
-        REQUEST_COUNT.labels(method=request.method, endpoint=request.path).inc()
-        REQUEST_LATENCY.labels(endpoint=request.path).observe(latency)
-    return response
-
-@app.route("/metrics")
+@app.route('/metrics')
 def metrics():
-    return generate_latest(registry), 200, {'Content-Type': CONTENT_TYPE_LATEST}
+    registry = CollectorRegistry()
+    multiprocess.MultiProcessCollector(registry)
+    return Response(generate_latest(registry), mimetype=CONTENT_TYPE_LATEST)
 
 @app.route('/', methods=['GET'])
 def index():
@@ -46,6 +42,7 @@ def index():
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    start_time = time.time()
     try:
         image_data = re.sub('^data:image/.+;base64,', '', request.json)
         pil_image = Image.open(BytesIO(base64.b64decode(image_data))).convert('RGB')
@@ -55,6 +52,9 @@ def predict():
         out = net.forward()
         index = np.argmax(out[0])
         label = label_names[index].capitalize()
+        latency = time.time() - start_time
+        REQUEST_COUNT.labels(request.method, request.endpoint).inc()
+        REQUEST_LATENCY.labels(request.method, request.endpoint).observe(latency)
         return jsonify(result=label)
     except Exception as e:
         return jsonify(error="Prediction failed", details=str(e)), 500
