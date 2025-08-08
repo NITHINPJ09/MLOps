@@ -11,8 +11,6 @@ import time
 
 app = Flask(__name__)
 
-multiprocess.MultiProcessCollector(REGISTRY)
-
 REQUEST_COUNT = Counter(
     'http_requests_total',
     'Total HTTP Requests',
@@ -24,6 +22,9 @@ REQUEST_LATENCY = Histogram(
     'Request latency in seconds',
     ['method', 'endpoint']
 )
+
+if os.environ.get('PROMETHEUS_MULTIPROC_DIR'):
+    multiprocess.MultiProcessCollector(REGISTRY)
 
 @app.route('/metrics')
 def metrics():
