@@ -1,6 +1,6 @@
 .dvc/
 .git/
 .github/
-.gitignore
+**/.gitignore
 *.md
 *.ipynb
