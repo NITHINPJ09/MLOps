@@ -18,7 +18,8 @@ REQUEST_COUNT = Counter(
 REQUEST_LATENCY = Histogram(
     'http_request_duration_seconds',
     'Request latency in seconds',
-    ['method', 'endpoint']
+    ['method', 'endpoint'],
+    buckets=[0.025, 0.05, 0.1, 0.25]
 )
 
 app = Flask(__name__)
