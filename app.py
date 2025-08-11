@@ -19,7 +19,7 @@ REQUEST_LATENCY = Histogram(
     'http_request_duration_seconds',
     'Request latency in seconds',
     ['method', 'endpoint'],
-    buckets=[0.025, 0.05, 0.1, 0.25]
+    buckets=[0.1, 0.5, 2, 5, 10]
 )
 
 app = Flask(__name__)
