@@ -1,0 +1,5 @@
+outs:
+- md5: e827f51b8eabb809cd971494d64bf11b
+  size: 1109796
+  hash: md5
+  path: cifar_classifier.onnx

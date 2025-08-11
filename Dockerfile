@@ -16,7 +16,7 @@ RUN --mount=type=secret,id=ACCOUNT_KEY \
     export STORAGE_ACCOUNT_KEY=$(cat /run/secrets/ACCOUNT_KEY) && \
     dvc remote modify classifier account_key $STORAGE_ACCOUNT_KEY && \
     dvc pull && \
-    rm -rf .dvc .dvcignore *.dvc
+    rm -rf .dvc .dvcignore models/*.dvc
 EXPOSE 8000
 USER appuser
 ENTRYPOINT ["/image_classifier/docker-entrypoint.sh"]
